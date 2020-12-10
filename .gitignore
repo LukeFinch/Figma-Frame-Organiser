@@ -1,5 +1,5 @@
 node_modules
-dist
+builds/development
 .DS_Store
 yarn.lock
 package-lock.json

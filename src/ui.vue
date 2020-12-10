@@ -5,17 +5,17 @@
       <div class="flex-row">
             <div class="input input--with-icon">
               <div class="icon 	icon--distribute-horizontal-spacing"></div>
-              <input type="input" class="input__field" v-model="spacingH">
+              <input type="number" class="input__field" v-model="spacingH" @input="organise">
             </div>
             <!-- Input with icon -->
             <div class="input input--with-icon">
               <div class="icon 	icon--distribute-vertical-spacing"></div>
-              <input type="input" class="input__field" v-model="spacingV">
+              <input type="number" class="input__field" v-model="spacingV" @input="organise">
             </div>
               <button class="button button--primary" @click='organise' :disabled="!selectionCount"> Organise </button>
       </div>
   
-        <div class="flex-row">
+        <div v-if="devMode"  class="flex-row">
                 <div class="input input--with-icon">
                   <div class="icon 	icon--random"></div>
                   <input type="input" class="input__field" v-model="randomFrameCount">
@@ -36,6 +36,10 @@ const spacingH = ref(120)
 const spacingV = ref(240)
 const selectionCount = ref(0)
 
+
+const devMode = BUILD_MODE == 'dev';
+console.log('devMode:', devMode )
+
 const helperText = computed(() => {
   return selectionCount.value > 1 ? `You have ${selectionCount.value} frames selected to organise` : `Select more than one frame to start organising`
 })
@@ -44,7 +48,8 @@ export default {
   setup(){
 
     function organise() {
-      dispatch('organise',{horizontal:spacingH.value,vertical:spacingV.value})
+
+      if(selectionCount.value > 1) {dispatch('organise',{horizontal:Number(spacingH.value),vertical:Number(spacingV.value)})}
     }
     function makeTestFrames(){
       //For helping dev...
@@ -65,7 +70,8 @@ export default {
       helperText,
       randomFrameCount,
       organise,
-      makeTestFrames
+      makeTestFrames,
+      devMode
     }
   }
 }
@@ -76,7 +82,7 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-around;
   padding: var(--size-medium);
   height: 100vh;
 

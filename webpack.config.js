@@ -1,7 +1,9 @@
-const HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin');
-const RemovePlugin = require('remove-files-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-const { VueLoaderPlugin } = require('vue-loader');
+const webpack = require('webpack')
+const HtmlWebpackInlineSourcePlugin = require('html-webpack-inline-source-plugin'); //Bundles into one file
+const RemovePlugin = require('remove-files-webpack-plugin'); //Cleans up dist folder on build
+const HtmlWebpackPlugin = require('html-webpack-plugin'); //Bundles HTML
+const { VueLoaderPlugin } = require('vue-loader'); //Makes vue Work
+const CreateFileWebpack = require('create-file-webpack') //Used to create the manifest.json
 const path = require('path');
 
 module.exports = (env, argv) => ({
@@ -65,16 +67,20 @@ module.exports = (env, argv) => ({
 
 	output: {
 		filename: '[name].js',
-		path: path.resolve(__dirname, 'dist') // Compile into a folder called "dist"
+
+		path: path.resolve(__dirname, 'builds/'+argv.mode) // Compile into a folder called "dist"
 	},
 
 	// Tells Webpack to generate "ui.html" and to inline "ui.ts" into it
 	plugins:
 		argv.mode === 'production'
 			? [
+					new webpack.DefinePlugin({
+						BUILD_MODE: JSON.stringify("production")
+					  }),
 					new VueLoaderPlugin(),
 					new RemovePlugin({
-						after: { include: ['dist/ui.js'] }
+						after: { include: ['builds/production/ui.js'] }
 					}),
 					new HtmlWebpackPlugin({
 						template: './src/ui.html',
@@ -82,9 +88,26 @@ module.exports = (env, argv) => ({
 						inlineSource: '.(js|css|scss)$',
 						chunks: ['ui']
 					}),
-					new HtmlWebpackInlineSourcePlugin()
+					new HtmlWebpackInlineSourcePlugin(),
+					new CreateFileWebpack({
+						path: path.resolve(__dirname, 'builds/'+argv.mode),
+						fileName: 'manifest.json',
+						content: JSON.stringify(
+							{
+								"name": "Organiser",
+								"api": "1.0.0",
+								"main": "code.js",
+								"ui": "ui.html",
+								"id": "918926326416353608"
+							}
+							
+						),
+					  })
 			  ]
 			: [
+				new webpack.DefinePlugin({
+					BUILD_MODE: JSON.stringify("dev")
+				  }),
 					new VueLoaderPlugin(),
 					new HtmlWebpackPlugin({
 						template: './src/ui.html',
@@ -92,6 +115,20 @@ module.exports = (env, argv) => ({
 						inlineSource: '.(js|css|scss)$',
 						chunks: ['ui']
 					}),
-					new HtmlWebpackInlineSourcePlugin()
+					new HtmlWebpackInlineSourcePlugin(),
+					new CreateFileWebpack({
+						path: path.resolve(__dirname, 'builds/'+argv.mode),
+						fileName: 'manifest.json',
+						content: JSON.stringify(
+							{
+								"name": "Organiser Development Build",
+								"api": "1.0.0",
+								"main": "code.js",
+								"ui": "ui.html",
+								"id": "918926326416353608"
+							}
+							
+						),
+					  })
 			  ]
 });
