@@ -30,6 +30,7 @@ import styles from 'figma-plugin-ds/dist/figma-plugin-ds.css'
 import { dispatch, handleEvent } from "./uiMessageHandler";
 import {ref, onMounted, computed} from "vue"
 
+
 const randomFrameCount = ref(40)
 
 const spacingH = ref(120)
@@ -45,6 +46,10 @@ const helperText = computed(() => {
 })
 
 export default {
+  components: {
+          GridLayout: VueGridLayout.GridLayout,
+          GridItem: VueGridLayout.GridItem
+  },
   setup(){
 
     function organise() {

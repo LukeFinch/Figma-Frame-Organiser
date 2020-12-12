@@ -4,11 +4,9 @@ interface Spacing {
 	horizontal: number
 }
 
-
-
-
 var leftFrame = null
 var rowCount
+var layout = []
 
 
 import { dispatch, handleEvent } from './codeMessageHandler';
@@ -81,6 +79,11 @@ function makeRow(frames: Array<SceneNode>, spacing: Spacing){
 }
 
 function rowsDone(){
+
+	dispatch('setLayout',layout)
+
+
+
 	//Sort the frames
 	let sel = [ ...figma.currentPage.selection].sort(function(a,b) {
 		if(a.y === b.y){
