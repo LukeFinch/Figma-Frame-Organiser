@@ -11,9 +11,11 @@ var layout = []
 
 import { dispatch, handleEvent } from './codeMessageHandler';
 figma.showUI(__html__);
+figma.ui.resize(400,400);
 //Send selection length on launch
 let frames = figma.currentPage.selection.filter(sel => sel.type == "FRAME" || sel.type == "COMPONENT")
 dispatch('updateSelectionCount',frames.length)
+dispatch('viewport',figma.viewport.bounds)
 
 // The following shows how messages from the UI code can be handled in the main code.
 figma.on("selectionchange", () => {
@@ -21,15 +23,15 @@ figma.on("selectionchange", () => {
 	dispatch('updateSelectionCount',frames.length)
 })
 
-
+handleEvent("resizeUI", (size) => {
+	figma.ui.resize(size[0],size[1])
+})
 
 
 function makeRow(frames: Array<SceneNode>, spacing: Spacing){
-	rowCount ++
+	let columns = []
 	//Get the top most frame
 	let topFrame = getTopFrame(frames)
-
-
 
 	//Get the left most frame, to align from
 	if(leftFrame === null){
@@ -44,15 +46,23 @@ function makeRow(frames: Array<SceneNode>, spacing: Spacing){
 	//Sort them so theyre in left-right-order
 	let newRow = frames.filter(frame => (frame.y + frame.height/2) <= topFrame.y + topFrame.height || frame == topFrame).sort((a,b) => a.x - b.x) as Array<SceneNode>
 
-	newRow.forEach((frame,index) => {
-		frame.setPluginData('row', rowCount.toString());
-		frame.setPluginData('index', index.toString());
+	newRow.forEach(async (frame,index) => {
+
 		// `Row:${rowCount} Index:${index+1} `
 		frame.y = topFrame.y
 		frame.x = xOffset
 		xOffset += frame.width + spacing.horizontal
 
-
+		columns.push({
+			id: frame.id,
+			// img: await frame.exportAsync({format: "SVG"}).then((buffer) => {
+			// 	return "data:image/svg+xml;base64," + Buffer.from(buffer).toString('base64');
+			// }),
+			width: frame.width,
+			height: frame.height,
+			row: rowCount,
+			column: index
+		})
 		
 	})
 
@@ -61,6 +71,7 @@ function makeRow(frames: Array<SceneNode>, spacing: Spacing){
 		return prev.height > curr.height ? prev : curr
 	})
 
+	layout.push(columns)
 
 	const nextFrames = frames.filter( x => {return newRow.indexOf(x) < 0})
 
@@ -70,7 +81,8 @@ function makeRow(frames: Array<SceneNode>, spacing: Spacing){
 		let heightDiff = tallest.y + tallest.height - nextTop.y
 		nextFrames.forEach(frame => {
 			frame.y += heightDiff + spacing.vertical
-		 } )		
+		 } )
+		rowCount ++		
 		makeRow(nextFrames,spacing)
 	} else {
 		rowsDone()
@@ -80,24 +92,60 @@ function makeRow(frames: Array<SceneNode>, spacing: Spacing){
 
 function rowsDone(){
 
-	dispatch('setLayout',layout)
+	const firstIndex = Math.min(...layout.flat().map(n => {
+		return figma.currentPage.children.findIndex(layer => layer.id == n.id)
+	}))
+
+	const nodes = layout.flat().map(n => figma.getNodeById(n.id) as SceneNode)
+
+	const bounds = {
+		x:  nodes.reduce(function(prev,curr) {
+			return prev.x < curr.x ? prev : curr
+			}).x,
+		get x2(){let r = nodes.reduce(function(prev,curr){
+			return prev.x + prev.width > curr.x + curr.width ? prev : curr
+		}); return r.x + r.width },
+		y:  nodes.reduce(function(prev,curr) {
+			return prev.y < curr.y ? prev : curr
+			}).y, 
+		get y2(){let r = nodes.reduce(function(prev,curr){
+				return prev.y + prev.height > curr.y + curr.height ? prev : curr
+			}); return r.y + r.height },
+
+		get height(){return this.y2 - this.y},
+		get width(){return this.x2 - this.x}
+	}
+	dispatch('viewport',bounds)
+
+	
 
 
 
-	//Sort the frames
-	let sel = [ ...figma.currentPage.selection].sort(function(a,b) {
+	// //Sort the frames
+	nodes.sort(function(a,b) {
 		if(a.y === b.y){
 			return b.x - a.x
 		}
 		return a.y < b.y ? 1 : -1;
 	})
-	sel.forEach((item,index) => {
-		figma.currentPage.insertChild(index,item)
-		//TODO: Get the lowest index from within the selection and offset the index by that
+	nodes.forEach((item,index) => {
+		figma.currentPage.insertChild(index+firstIndex,item)
+			})
+
+
+	var layoutStructured = []
+	layout.forEach((row,rowIndex) => {
+		let columns = []
+		row.forEach((column) => {
+			columns.push(column)
+		})
+		layoutStructured.push({
+		row: rowIndex,
+		columns: columns
+		})
 	})
-	figma.notify('Woof')
-
-
+	dispatch('setLayout', layoutStructured)
+	figma.viewport.scrollAndZoomIntoView(nodes)
 }
 
 function getTopFrame(frames: Array<SceneNode>){
@@ -109,16 +157,74 @@ function getTopFrame(frames: Array<SceneNode>){
 
 
 handleEvent("organise", (spacing) => {
+	layout = []
 	leftFrame = null
 	rowCount = 0
 	const frames = figma.currentPage.selection.filter(sel => sel.type !== "SLICE") as Array<SceneNode>
-	console.log(frames)
-	makeRow(frames, spacing)
 
-
-	
+	makeRow(frames, spacing)	
 		  
 })
+
+
+handleEvent("newLayout",(data) => {
+
+	console.log("Layout change from UI")
+	
+	var data = JSON.parse(data)
+	let datlayout = data.layout
+
+	datlayout = datlayout.filter(rows => rows.columns.length > 0)
+
+	dispatch('setLayout',datlayout)
+	let spacing = data.spacing
+	var nodes = []
+	let topFrame = figma.getNodeById(datlayout[0].columns[0].id) as SceneNode;
+	var yOffset = topFrame.y
+
+	datlayout.forEach(row => {
+		console.log(row)
+		const tallest = row.columns.reduce(function(prev,curr) {
+			return prev.height > curr.height ? prev : curr
+		})
+		console.log(tallest)
+		var xOffset = topFrame.x
+		row.columns.forEach(column => {
+			let node = figma.getNodeById(column.id) as SceneNode
+			nodes.push(node)
+			node.y = yOffset
+			node.x = xOffset
+
+			xOffset += node.width + spacing.horizontal
+		})
+		yOffset += tallest.height + spacing.vertical
+})
+
+	
+	const bounds = {
+		x:  nodes.reduce(function(prev,curr) {
+			return prev.x < curr.x ? prev : curr
+			}).x,
+		get x2(){let r = nodes.reduce(function(prev,curr){
+			return prev.x + prev.width > curr.x + curr.width ? prev : curr
+		}); return r.x + r.width },
+		y:  nodes.reduce(function(prev,curr) {
+			return prev.y < curr.y ? prev : curr
+			}).y, 
+		get y2(){let r = nodes.reduce(function(prev,curr){
+				return prev.y + prev.height > curr.y + curr.height ? prev : curr
+			}); return r.y + r.height },
+
+		get height(){return this.y2 - this.y},
+		get width(){return this.x2 - this.x}
+	}
+	dispatch('viewport',bounds)
+	figma.viewport.scrollAndZoomIntoView(nodes)
+
+	
+
+
+});
 
 //For Development Only!
 handleEvent("makeTestNodes", (count) => {
@@ -143,15 +249,28 @@ handleEvent("makeTestNodes", (count) => {
 	 figma.viewport.scrollAndZoomIntoView(nodes)
 })			
 
-function highlight(frame: FrameNode){
+
+handleEvent('unhighlight', (id) => {
+	let node = figma.getNodeById(id)
+		removeHighlight(node)
+})
+handleEvent('highlight', (id) => {
+	let node = figma.getNodeById(id)
+	figma.currentPage.selection.forEach(n => {
+		removeHighlight(n)
+	})
+	highlight(node)
+})
+
+function highlight(frame){
 	//Highlight it with a hot pink glow because I'm a sassy bitch
 	frame.effects = [...frame.effects,
 		{
 		  "type": "DROP_SHADOW",
 		  "color": {
 			"r": 1,
-			"g": 0,
-			"b": 0.7,
+			"g": 105/255,
+			"b": 180/255,
 			"a": 1
 		  },
 		  "offset": {
@@ -167,11 +286,17 @@ function highlight(frame: FrameNode){
 	frame.setPluginData('highlighted', 'true')
 }
 
-function removeHighlight(frame: FrameNode){
-if(
-	frame.getPluginData('highlighted') === 'true' &&
-	frame.effects[frame.effects.length].type == "DROP_SHADOW" 
-  ){
-	  frame.effects = [...frame.effects.slice(0,-1)]
-  }
+function removeHighlight(frame){
+
+try{
+	if(
+		frame.getPluginData('highlighted') == 'true' &&
+		frame.effects[frame.effects.length -1].type == "DROP_SHADOW" 
+	  ){
+		  frame.effects = [...frame.effects.slice(0,-1)]
+	  }
+	  frame.setPluginData('highlighted', 'false')
+	 } catch(e){
+		 //console.log(e)
+	 }
 }

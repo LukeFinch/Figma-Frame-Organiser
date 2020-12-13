@@ -11,7 +11,7 @@ module.exports = (env, argv) => ({
 	devtool: argv.mode === 'production' ? false : 'inline-source-map',
 
 	entry: {
-		ui: './src/ui.ts', // The entry point for your UI code
+		ui: './src/ui/ui.ts', // The entry point for your UI code
 		code: './src/code.ts' // The entry point for your plugin code
 	},
 
@@ -83,7 +83,7 @@ module.exports = (env, argv) => ({
 						after: { include: ['builds/production/ui.js'] }
 					}),
 					new HtmlWebpackPlugin({
-						template: './src/ui.html',
+						template: './src/ui/ui.html',
 						filename: 'ui.html',
 						inlineSource: '.(js|css|scss)$',
 						chunks: ['ui']
@@ -110,7 +110,7 @@ module.exports = (env, argv) => ({
 				  }),
 					new VueLoaderPlugin(),
 					new HtmlWebpackPlugin({
-						template: './src/ui.html',
+						template: './src/ui/ui.html',
 						filename: 'ui.html',
 						inlineSource: '.(js|css|scss)$',
 						chunks: ['ui']

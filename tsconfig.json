@@ -4,6 +4,10 @@
 		"target": "es6",
 		// if using webpack 2+ or rollup, to leverage tree shaking:
 		"module": "es2015",
+		"lib": [
+			"es2019",
+			"dom"
+		],
 		"moduleResolution": "node",
 		"typeRoots": [
 			"./node_modules/@types",
