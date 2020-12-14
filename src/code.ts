@@ -13,13 +13,13 @@ import { dispatch, handleEvent } from './codeMessageHandler';
 figma.showUI(__html__);
 figma.ui.resize(400,400);
 //Send selection length on launch
-let frames = figma.currentPage.selection.filter(sel => sel.type == "FRAME" || sel.type == "COMPONENT")
+let frames = figma.currentPage.selection.filter(sel => sel.type !== "SLICE")
 dispatch('updateSelectionCount',frames.length)
 dispatch('viewport',figma.viewport.bounds)
 
 // The following shows how messages from the UI code can be handled in the main code.
 figma.on("selectionchange", () => {
-	const frames = figma.currentPage.selection.filter(sel => sel.type == "FRAME")
+	const frames = figma.currentPage.selection.filter(sel => sel.type !== "SLICE")
 	dispatch('updateSelectionCount',frames.length)
 })
 
@@ -30,8 +30,11 @@ handleEvent("resizeUI", (size) => {
 
 function makeRow(frames: Array<SceneNode>, spacing: Spacing){
 	let columns = []
-	//Get the top most frame
-	let topFrame = getTopFrame(frames)
+	
+	//Sort by X
+	frames.sort((a,b) => {
+		return a.x - b.x
+	}) 
 
 	//Get the left most frame, to align from
 	if(leftFrame === null){
@@ -42,22 +45,31 @@ function makeRow(frames: Array<SceneNode>, spacing: Spacing){
 
 	let xOffset = leftFrame.x //Where to start aligning horizontally from
 
+	//Get the top most frame
+	let topFrame = getTopFrame(frames) as SceneNode
+	
+
+	topFrame.name = 'TOPFRAME' + topFrame.name
+	
+
+
 	//Only get frames where more than half is above the bottom of the top frame
 	//Sort them so theyre in left-right-order
-	let newRow = frames.filter(frame => (frame.y + frame.height/2) <= topFrame.y + topFrame.height || frame == topFrame).sort((a,b) => a.x - b.x) as Array<SceneNode>
+	//let newRow = frames.filter(frame => (frame.y + frame.height/2) <= topFrame.y + topFrame.height).sort((a,b) => a.x - b.x) as Array<SceneNode>
+	let newRow = frames.filter(frame => frame.y <= topFrame.y + topFrame.height/2).sort((a,b) => a.x - b.x) as Array<SceneNode>
+	
 
-	newRow.forEach(async (frame,index) => {
+	newRow.forEach((frame,index) => {
 
+	
 		// `Row:${rowCount} Index:${index+1} `
 		frame.y = topFrame.y
 		frame.x = xOffset
 		xOffset += frame.width + spacing.horizontal
+		if(frame.height > topFrame.height){topFrame = frame}
 
 		columns.push({
 			id: frame.id,
-			// img: await frame.exportAsync({format: "SVG"}).then((buffer) => {
-			// 	return "data:image/svg+xml;base64," + Buffer.from(buffer).toString('base64');
-			// }),
 			width: frame.width,
 			height: frame.height,
 			row: rowCount,
@@ -115,9 +127,7 @@ function rowsDone(){
 		get height(){return this.y2 - this.y},
 		get width(){return this.x2 - this.x}
 	}
-	dispatch('viewport',bounds)
-
-	
+	//dispatch('viewport',bounds)	
 
 
 
@@ -151,7 +161,7 @@ function rowsDone(){
 function getTopFrame(frames: Array<SceneNode>){
 	return frames.reduce(function(prev, curr) {
 		return prev.y < curr.y ? prev : curr; 
-	});
+	}) as SceneNode
 }
 
 
@@ -176,12 +186,12 @@ handleEvent("newLayout",(data) => {
 
 	datlayout = datlayout.filter(rows => rows.columns.length > 0)
 
-	dispatch('setLayout',datlayout)
+	//dispatch('setLayout',datlayout)
 	let spacing = data.spacing
 	var nodes = []
 	let topFrame = figma.getNodeById(datlayout[0].columns[0].id) as SceneNode;
 	var yOffset = topFrame.y
-
+	console.log(topFrame)
 	datlayout.forEach(row => {
 		console.log(row)
 		const tallest = row.columns.reduce(function(prev,curr) {
@@ -194,7 +204,7 @@ handleEvent("newLayout",(data) => {
 			nodes.push(node)
 			node.y = yOffset
 			node.x = xOffset
-
+			
 			xOffset += node.width + spacing.horizontal
 		})
 		yOffset += tallest.height + spacing.vertical
@@ -218,7 +228,7 @@ handleEvent("newLayout",(data) => {
 		get height(){return this.y2 - this.y},
 		get width(){return this.x2 - this.x}
 	}
-	dispatch('viewport',bounds)
+	//dispatch('viewport',bounds)
 	figma.viewport.scrollAndZoomIntoView(nodes)
 
 	
