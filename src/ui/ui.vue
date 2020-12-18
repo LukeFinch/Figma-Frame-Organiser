@@ -1,6 +1,10 @@
 <template>
   <div id="ui">
-    <p class="type type--pos-small-normal">You have selected <strong>{{selectionCount}} items</strong></p>
+    <p class="type type--pos-small-normal">
+      <span v-if="tooManyParents" style="color: var(--red)">You must select frames within the same parent</span>
+      <span v-else-if="selectionCount < 2">Select more than one frame to start organising</span>
+      <span v-else>You have <strong>{{selectionCount}} items</strong> to organise</span>  
+     </p>
 
     <div class="flex-row" id="inputs">
       <div class="flex-columm">
@@ -19,7 +23,7 @@
       </div>
 
     </div>
-      <button class="button button--primary" @click='organise' :disabled="!selectionCount"> Organise Frames </button>
+      <button class="button button--primary" @click='organise' :disabled="selectionCount < 2 || tooManyParents"> Organise Frames </button>
 
     <div class="checkbox">
       <input id="sortCheck" v-model="sortOrder" type="checkbox" class="checkbox__box">
@@ -117,6 +121,7 @@
   const layout = ref([])
   const mapScale = ref(1)
   const sortOrder = ref(false)
+  const tooManyParents = ref(false)
   var drag = ref(false)
 
   const app = document.getElementById('app')
@@ -153,9 +158,15 @@
   console.log('devMode:', devMode)
 
   const helperText = computed(() => {
-    return selectionCount.value > 1 ? `You have ${selectionCount.value} frames selected to organise` :
-      `Select more than one frame to start organising`
-  })
+    let text
+    if(tooManyParents.value){
+      text = "<span class=red>You must select frames within the same parent</span>"
+    } else {
+      text = selectionCount.value > 1 ? `You have selected <strong>${selectionCount.value} items</strong>` :
+        `Select more than one frame to start organising`
+    }
+      return text
+    })
 
   export default {
     components: {
@@ -227,6 +238,11 @@
 
       onMounted(() => {
 
+        handleEvent('warnTooManyParents', (data) => {          
+          tooManyParents.value = data
+          console.log(tooManyParents.value)
+        })
+
         handleEvent('spacingPrefs', (data) => {
           spacingH.value = data.horizontal
           spacingV.value = data.vertical
@@ -291,7 +307,8 @@
         zoomTo,
         mapScale,
         drag,
-        sortOrder
+        sortOrder,
+        tooManyParents
       }
     }
   }

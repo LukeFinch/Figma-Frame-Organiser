@@ -9,11 +9,25 @@ var rowCount
 var layout = []
 
 
+import { access } from 'fs';
 import { dispatch, handleEvent } from './codeMessageHandler';
 figma.showUI(__html__);
 figma.ui.resize(400,400);
 //Send selection length on launch
 let frames = figma.currentPage.selection.filter(sel => sel.type !== "SLICE")
+let parents = frames.reduce((a,b) => {
+	a.add(b.parent)
+	return a
+}, new Set)
+
+if(parents.size > 1){
+	figma.notify('Organiser only works on items with the same parent')
+	dispatch('warnTooManyParents', true)
+} else {
+	dispatch('warnTooManyParents', false)
+}
+
+
 dispatch('updateSelectionCount',frames.length)
 dispatch('viewport',figma.viewport.bounds)
 
@@ -24,6 +38,18 @@ figma.clientStorage.getAsync('spacing').then(
 // The following shows how messages from the UI code can be handled in the main code.
 figma.on("selectionchange", () => {
 	const frames = figma.currentPage.selection.filter(sel => sel.type !== "SLICE")
+	let parents = frames.reduce((a,b) => {
+		a.add(b.parent)
+		return a
+	}, new Set)
+
+	if(parents.size > 1){
+		dispatch('warnTooManyParents', true)
+	} else {
+		dispatch('warnTooManyParents', false)
+	}
+
+	
 	dispatch('updateSelectionCount',frames.length)
 })
 
@@ -148,8 +174,10 @@ function rowsDone(reverse){
 
 	reverse ? nodes.reverse() : null
 
+	let parent = nodes[0].parent
+
 	nodes.forEach((item,index) => {
-		figma.currentPage.insertChild((firstIndex >= 0 ? firstIndex : 0) + index,item)
+		parent.insertChild((firstIndex >= 0 ? firstIndex : 0) + index,item)
 			})
 
 
@@ -177,7 +205,7 @@ function getTopFrame(frames: Array<SceneNode>){
 
 
 handleEvent("organise", (data) => {
-	
+
 	const spacing = data.spacing
 	figma.clientStorage.setAsync('spacing',spacing)
 	layout = []
@@ -301,8 +329,8 @@ function highlight(frame){
 			"x": 0,
 			"y": 0
 		  },
-		  "radius": 50,
-		  "spread": 50,
+		  "radius": frame.width * 0.05,
+		  "spread": frame.width * 0.05,
 		  "visible": true,
 		  "blendMode": "NORMAL"
 		}
