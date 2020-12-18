@@ -17,6 +17,10 @@ let frames = figma.currentPage.selection.filter(sel => sel.type !== "SLICE")
 dispatch('updateSelectionCount',frames.length)
 dispatch('viewport',figma.viewport.bounds)
 
+figma.clientStorage.getAsync('spacing').then(
+	userSpacing => dispatch('spacingPrefs',userSpacing),
+	failed => console.error(failed)
+)
 // The following shows how messages from the UI code can be handled in the main code.
 figma.on("selectionchange", () => {
 	const frames = figma.currentPage.selection.filter(sel => sel.type !== "SLICE")
@@ -26,9 +30,14 @@ figma.on("selectionchange", () => {
 handleEvent("resizeUI", (size) => {
 	figma.ui.resize(size[0],size[1])
 })
+handleEvent("zoomTo", (id) => {
+	let node = [figma.getNodeById(id)]
+	figma.viewport.scrollAndZoomIntoView(node)
+	figma.viewport.zoom *= 0.8
+})
 
 
-function makeRow(frames: Array<SceneNode>, spacing: Spacing){
+function makeRow(frames: Array<SceneNode>, spacing: Spacing, reverse: Boolean){
 	let columns = []
 	
 	//Sort by X
@@ -47,9 +56,6 @@ function makeRow(frames: Array<SceneNode>, spacing: Spacing){
 
 	//Get the top most frame
 	let topFrame = getTopFrame(frames) as SceneNode
-	
-
-	topFrame.name = 'TOPFRAME' + topFrame.name
 	
 
 
@@ -95,14 +101,15 @@ function makeRow(frames: Array<SceneNode>, spacing: Spacing){
 			frame.y += heightDiff + spacing.vertical
 		 } )
 		rowCount ++		
-		makeRow(nextFrames,spacing)
+		makeRow(nextFrames,spacing, reverse)
 	} else {
-		rowsDone()
+		rowsDone(reverse)
 	}
 
 }
 
-function rowsDone(){
+function rowsDone(reverse){
+	console.log('Reverse?',reverse)
 
 	const firstIndex = Math.min(...layout.flat().map(n => {
 		return figma.currentPage.children.findIndex(layer => layer.id == n.id)
@@ -138,8 +145,11 @@ function rowsDone(){
 		}
 		return a.y < b.y ? 1 : -1;
 	})
+
+	reverse ? nodes.reverse() : null
+
 	nodes.forEach((item,index) => {
-		figma.currentPage.insertChild(index+firstIndex,item)
+		figma.currentPage.insertChild((firstIndex >= 0 ? firstIndex : 0) + index,item)
 			})
 
 
@@ -166,13 +176,16 @@ function getTopFrame(frames: Array<SceneNode>){
 
 
 
-handleEvent("organise", (spacing) => {
+handleEvent("organise", (data) => {
+	
+	const spacing = data.spacing
+	figma.clientStorage.setAsync('spacing',spacing)
 	layout = []
 	leftFrame = null
 	rowCount = 0
 	const frames = figma.currentPage.selection.filter(sel => sel.type !== "SLICE") as Array<SceneNode>
 
-	makeRow(frames, spacing)	
+	makeRow(frames, spacing, data.sort)	
 		  
 })
 
@@ -261,14 +274,15 @@ handleEvent("makeTestNodes", (count) => {
 
 
 handleEvent('unhighlight', (id) => {
-	let node = figma.getNodeById(id)
-		removeHighlight(node)
+	let nodes = figma.currentPage.findAll(n => n.getPluginData('highlighted') === 'true')
+	nodes.forEach(node => removeHighlight(node))
+	//let node = figma.getNodeById(id)
+		//removeHighlight(node)
 })
 handleEvent('highlight', (id) => {
 	let node = figma.getNodeById(id)
-	figma.currentPage.selection.forEach(n => {
-		removeHighlight(n)
-	})
+	let nodes = figma.currentPage.findAll(n => n.getPluginData('highlighted') === 'true')
+	nodes.forEach(node => removeHighlight(node))
 	highlight(node)
 })
 

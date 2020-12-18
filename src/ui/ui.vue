@@ -1,21 +1,32 @@
 <template>
   <div id="ui">
-    <p class="type type--pos-small-normal">{{helperText}}</p>
+    <p class="type type--pos-small-normal">You have selected <strong>{{selectionCount}} items</strong></p>
 
-    <div class="flex-row">
+    <div class="flex-row" id="inputs">
+      <div class="flex-columm">
+      <label class="label" for="hori">Horizontal Spacing</label>
       <div class="input input--with-icon">
         <div class="icon 	icon--distribute-horizontal-spacing"></div>
-        <input type="number" class="input__field" v-model="spacingH" @input="organise">
+        <input id="hori"  type="number" class="input__field" v-model="spacingH" @input="organise">
       </div>
-      <!-- Input with icon -->
+      </div>
+       <div class="flex-column">
+       <label class="label" for="vert">Vertical Spacing</label>
       <div class="input input--with-icon">
         <div class="icon 	icon--distribute-vertical-spacing"></div>
-        <input type="number" class="input__field" v-model="spacingV" @input="organise">
+        <input id="vert" type="number" class="input__field" v-model="spacingV" @input="organise">
       </div>
-      <button class="button button--primary" @click='organise' :disabled="!selectionCount"> Organise </button>
+      </div>
+
+    </div>
+      <button class="button button--primary" @click='organise' :disabled="!selectionCount"> Organise Frames </button>
+
+    <div class="checkbox">
+      <input id="sortCheck" v-model="sortOrder" type="checkbox" class="checkbox__box">
+      <label for="sortCheck"  class="checkbox__label">Reverse Sort Order</label>
     </div>
 
-    <Disclosure heading="MiniMap" :expanded="false" :section="false">
+    <Disclosure heading="View Frame Mini Map" :expanded="false" :section="false">
 
     <div id="wrap">
      
@@ -28,7 +39,8 @@
         :empty-insert-threshold="100"
         :list="layout"
         itemKey=row.row>         
-          <template #item={row,index} >
+            <!-- Row -->
+          <template #item={index} > 
             <div :style="{marginBottom: spacingV/20}" class="dragRowContainer">
             <draggable
             class="dragRow"
@@ -42,6 +54,9 @@
                         <div class="dragColumn"
                         @mouseover="highlight(element,index,$event)"
                         @mouseout="unhighlight(element,index,$event)"
+                        @dblclick="zoomTo(element,index,$event)"
+                        @dragstart="drag=true"
+                        @dragend="drag=false"
                         :style="{
                           width:element.width/10 +'px',
                           height:element.height/10+'px',
@@ -101,6 +116,7 @@
   const selectionCount = ref(0)
   const layout = ref([])
   const mapScale = ref(1)
+  const sortOrder = ref(false)
   var drag = ref(false)
 
   const app = document.getElementById('app')
@@ -177,8 +193,11 @@
       function organise() {
         if (selectionCount.value > 1) {
           dispatch('organise', {
+            sort: sortOrder.value,
+            spacing: {
             horizontal: Number(spacingH.value),
             vertical: Number(spacingV.value)
+            }
           })
         }
       }
@@ -189,8 +208,8 @@
       }
 
       function highlight(element, index, $event) {
-        $event.target.classList.add('hover')
         if (!drag.value) {
+        $event.target.classList.add('hover')
           dispatch('highlight', element.id)
         } else {
           $event.target.classList.remove('hover')
@@ -202,7 +221,16 @@
         dispatch('unhighlight', element.id)
       }
 
+       function zoomTo(element, index, $event) {
+        dispatch('zoomTo', element.id)
+      }
+
       onMounted(() => {
+
+        handleEvent('spacingPrefs', (data) => {
+          spacingH.value = data.horizontal
+          spacingV.value = data.vertical
+        })
 
         document.addEventListener("dragstart", function (event) {
           var img = new Image();
@@ -260,8 +288,10 @@
         handleFrameChange,
         highlight,
         unhighlight,
+        zoomTo,
         mapScale,
-        drag
+        drag,
+        sortOrder
       }
     }
   }
@@ -275,6 +305,10 @@
     justify-content: space-around;
     padding: var(--size-xxsmall) var(--size-small);
     overflow: hidden;
+  }
+
+  #ui > * {
+    margin-bottom: 8px
   }
 
   .flex-row {
@@ -339,6 +373,10 @@
 
   .dragColumn:last-child {
     margin-right: 0px !important;
+  }
+
+  #inputs{
+    margin-bottom: 16px;
   }
 
   #map {
