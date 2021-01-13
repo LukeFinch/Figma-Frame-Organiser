@@ -125,7 +125,7 @@ module.exports = (env, argv) => ({
 								"api": "1.0.0",
 								"main": "code.js",
 								"ui": "ui.html",
-								"id": "918926326416353608"
+								"id": "dev-mode"
 							}
 							
 						),

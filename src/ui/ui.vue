@@ -23,15 +23,23 @@
       </div>
 
     </div>
+    <div class="flex row-reverse">
       <button class="button button--primary" @click='organise' :disabled="selectionCount < 2 || tooManyParents"> Organise Frames </button>
 
     <div class="checkbox">
       <input id="sortCheck" v-model="sortOrder" type="checkbox" class="checkbox__box">
       <label for="sortCheck"  class="checkbox__label">Reverse Sort Order</label>
     </div>
-
+  </div>
     <Disclosure heading="View Frame Mini Map" :expanded="false" :section="false">
-
+        <div class="flex row justify-content-start">
+            <button class="reset-Button icon-button mr-xxxsmall" @click="resize(-1)" :disabled="appWidth <= 400">
+          <div class="icon icon--minus"></div>
+        </button>
+        <button class="reset-Button icon-button">
+          <div class="icon icon--plus" @click="resize(1)"></div>
+        </button>
+  </div>
     <div id="wrap">
      
 
@@ -65,7 +73,7 @@
                           width:element.width/10 +'px',
                           height:element.height/10+'px',
                           marginRight: spacingH/10,
-                          borderWidth: element.width/800 + 'px'
+                          borderWidth: 10/mapScale.value + 'px'
                           }">
                         
                         </div>
@@ -77,8 +85,10 @@
         </draggable>       
 
   </div>
-
-
+  <div class="mt-medium flex row justify-content-start ">
+    <button class="button button--secondary-destructive" @click="emptyRows" :disabled="!layout.some(row => row.columns.length == 0)">Clear Empty Rows</button>
+    <button class="button button--primary ml-xsmall" @click="insertRow">Add Row</button>
+  </div>
     </Disclosure>
 
     <Disclosure v-if="devMode" heading="Dev Tools" :expanded=false :section=false>
@@ -112,8 +122,13 @@
 
   import Disclosure from './components/disclosure.vue'
 
+  const app = document.getElementById('app')
+  app.style.width = 400;
 
   const randomFrameCount = ref(40)
+
+  const appWidth = ref(400)
+
 
   const spacingH = ref(120)
   const spacingV = ref(240)
@@ -124,7 +139,8 @@
   const tooManyParents = ref(false)
   var drag = ref(false)
 
-  const app = document.getElementById('app')
+
+
 
   function scaleBasedOnParent(elm, scale = 1, fit) {
 
@@ -175,6 +191,20 @@
       Disclosure
     },
     setup() {
+
+      function insertRow(){
+    layout.value.push({columns: []})
+  }
+    function emptyRows(){
+      layout.value = layout.value.filter(row => row.columns.length > 0)
+    }
+
+    function resize(direction){
+      const amount = 20 * direction
+      appWidth.value += amount
+      console.log(appWidth.value)
+      app.style.width = Number(app.style.width.replace('px','')) + amount +'px'
+    }
 
       function handleFrameChange(evt) {
         //console.log(evt)
@@ -261,6 +291,7 @@
 
         const resizeObserver = new ResizeObserver(function () {
           dispatch('resizeUI', [app.scrollWidth, app.scrollHeight])
+          scaleBasedOnParent(map, 1, true)
         });
         resizeObserver.observe(app)
 
@@ -279,7 +310,7 @@
         handleEvent('viewport', (data) => {
           let ratio = (data.height / data.width) * 100
           document.getElementById('wrap').style.height = ratio > 160 ? '160vw' : ratio + 'vw'
-          console.log('mapHeight', document.getElementById('map').scrollHeight)
+          //console.log('mapHeight', document.getElementById('map').scrollHeight)
           //document.getElementById('wrap').style.height = document.getElementById('map').scrollHeight + 'px'
         })
 
@@ -292,6 +323,7 @@
       });
 
       return {
+        appWidth,
         spacingH,
         spacingV,
         selectionCount,
@@ -308,7 +340,10 @@
         mapScale,
         drag,
         sortOrder,
-        tooManyParents
+        tooManyParents,
+        insertRow,
+        emptyRows,
+        resize
       }
     }
   }
@@ -338,14 +373,14 @@
     display: flex;
     flex-direction: row;
     justify-content: flex-start;
-
     width: 100%;
     box-sizing: content-box;
     transform-origin: top left;
+    height: 100%;
   }
   .dragRow:empty{
     background: var(--purple4);
-    min-height: var(--size-small);
+    min-height: 16vh;
   }
 
   .dragRowContainer{
@@ -377,7 +412,10 @@
     justify-content: center;
     align-items: center;
     font-size: 10px;
-  }
+    min-width: 10%;
+    min-height: 20vh;
+    max-width: 70%;
+      }
 
   .hover {
     /* box-shadow: 0 0 5px 5px hotpink; */
@@ -422,4 +460,38 @@
   .ghost {
     background: hotpink;
   }
+
+.reset-Button {
+    border: none;
+    margin: 0;
+    padding: 0;
+    width: auto;
+    overflow: visible;
+
+    background: transparent;
+
+    outline: none;
+
+    text-align: inherit;
+
+    border-radius: inherit;
+
+    /* inherit font & color from ancestor */
+    color: inherit;
+    font: inherit;
+
+    /* Normalize `line-height`. Cannot be changed from `normal` in Firefox 4+. */
+    line-height: normal;
+
+    /* Corrects font smoothing for webkit */
+    -webkit-font-smoothing: inherit;
+    -moz-osx-font-smoothing: inherit;
+
+    /* Corrects inability to style clickable `input` types in iOS */
+    -webkit-appearance: none;
+}
+.icon-button:disabled{
+  opacity: 0.2;
+}
+
 </style>
