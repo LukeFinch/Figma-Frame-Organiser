@@ -88,7 +88,7 @@ function makeRow(frames: Array<SceneNode>, spacing: Spacing, reverse: Boolean){
 	//Only get frames where more than half is above the bottom of the top frame
 	//Sort them so theyre in left-right-order
 	//let newRow = frames.filter(frame => (frame.y + frame.height/2) <= topFrame.y + topFrame.height).sort((a,b) => a.x - b.x) as Array<SceneNode>
-	let newRow = frames.filter(frame => frame.y <= topFrame.y + topFrame.height/2).sort((a,b) => a.x - b.x) as Array<SceneNode>
+	let newRow = frames.filter(frame => frame.y <= topFrame.y + topFrame.height/1.5).sort((a,b) => a.x - b.x) as Array<SceneNode>
 	
 
 	newRow.forEach((frame,index) => {
@@ -135,7 +135,7 @@ function makeRow(frames: Array<SceneNode>, spacing: Spacing, reverse: Boolean){
 }
 
 function rowsDone(reverse){
-	console.log('Reverse?',reverse)
+
 
 	const firstIndex = Math.min(...layout.flat().map(n => {
 		return figma.currentPage.children.findIndex(layer => layer.id == n.id)
@@ -220,7 +220,6 @@ handleEvent("organise", (data) => {
 
 handleEvent("newLayout",(data) => {
 
-	console.log("Layout change from UI")
 	
 	var data = JSON.parse(data)
 	let datlayout = data.layout
@@ -234,11 +233,11 @@ handleEvent("newLayout",(data) => {
 	var yOffset = topFrame.y
 	console.log(topFrame)
 	datlayout.forEach(row => {
-		console.log(row)
+
 		const tallest = row.columns.reduce(function(prev,curr) {
 			return prev.height > curr.height ? prev : curr
 		})
-		console.log(tallest)
+
 		var xOffset = topFrame.x
 		row.columns.forEach(column => {
 			let node = figma.getNodeById(column.id) as SceneNode
@@ -273,7 +272,7 @@ handleEvent("newLayout",(data) => {
 	figma.viewport.scrollAndZoomIntoView(nodes)
 
 	
-
+	rowsDone(data.sort)
 
 });
 

@@ -219,6 +219,7 @@
           })
           // console.log(dat)
           let data = {
+            'sort': sortOrder.value,
             'layout': dat,
             'spacing': {
               horizontal: Number(spacingH.value),
